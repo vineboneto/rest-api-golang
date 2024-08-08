@@ -1,0 +1,21 @@
+services:
+  db_ponkan:
+    container_name: db_ponkan
+    image: docker.io/postgres:15
+    restart: always
+    networks:
+      - pepino
+    healthcheck:
+      test: ["CMD", "pg_isready", "-d", "postgres", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    environment:
+      POSTGRES_USER: ${POSTGRES_PEPINO_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PEPINO_PASS}
+      POSTGRES_DB: ${POSTGRES_PEPINO_DATABASE}
+      TZ: America/Sao_Paulo
+    ports:
+      - ${POSTGRES_PEPINO_EXT_PORT}:5432
+    volumes:
+      - ponkan_pgdata:/data/postgres
