@@ -1,11 +1,23 @@
 @api_url=http://localhost:8080
 
 ###
-
 POST {{api_url}}/tenant
 Content-Type: application/json
 
 {
-  "nome": "Vinicius",
-  "sobrenome": "Boneto"
+  "nome": "Boneto"
+}
+
+###
+GET {{api_url}}/tenant?qpage=0&limit=10
+
+###
+GET {{api_url}}/tenant/4
+
+###
+PATCH {{api_url}}/tenant/4
+Content-Type: application/json
+
+{
+  "nome": "José"
 }

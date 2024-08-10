@@ -1,49 +1,42 @@
 package handler
 
 import (
-	"context"
-	"log"
 	"net/http"
-	"time"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	validation "github.com/go-ozzo/ozzo-validation"
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/jackc/pgx/v5"
 	"github.com/vineboneto/rest-api-golang/internal/infra/db"
+	pkg "github.com/vineboneto/rest-api-golang/pkg/types"
+	"gorm.io/gorm"
 )
 
 type HandlerTenant struct {
-	pool *db.DB
+	db *db.DB
 }
 
-func (h *HandlerTenant) CreateTenant(c *gin.Context) {
+func (h *HandlerTenant) CreateTenant(c *gin.Context) error {
 
 	type Body struct {
-		Nome      string `json:"nome"`
-		Sobrenome string `json:"sobrenome"`
+		Nome string `json:"nome"`
 	}
 
 	body := Body{}
 
 	if err := c.BindJSON(&body); err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
+		AbortWithStatus(c).BadRequest(err)
+		return nil
 	}
 
 	err := validation.ValidateStruct(&body,
 		validation.Field(&body.Nome, validation.Required, validation.Length(5, 50)),
-		validation.Field(&body.Sobrenome, validation.Required, validation.Length(5, 50)),
 	)
 
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, err)
-		return
+		AbortWithStatus(c).BadRequest(err)
+		return nil
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	defer cancel()
 
 	ib := sqlbuilder.PostgreSQL.NewInsertBuilder()
 
@@ -53,21 +46,10 @@ func (h *HandlerTenant) CreateTenant(c *gin.Context) {
 
 	sql, args := ib.Build()
 
-	log.Println(sql, args)
+	var id int
 
-	err = h.pool.WithTransaction(ctx, func(tx pgx.Tx) error {
-
-		_, err = tx.Exec(ctx, "INSERT INTO users (name) VALUES ($1)", "Alice")
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.Exec(ctx, "INSERT INTO users (name) VALUES ($1)", "Bob")
-		if err != nil {
-			return err
-		}
-
-		err = tx.Commit(ctx)
+	err = h.db.Conn.Transaction(func(tx *gorm.DB) error {
+		err = tx.Raw(sql, args...).Scan(&id).Error
 		if err != nil {
 			return err
 		}
@@ -76,11 +58,148 @@ func (h *HandlerTenant) CreateTenant(c *gin.Context) {
 	})
 
 	if err != nil {
-		return
+		return err
 	}
 
+	c.JSON(http.StatusCreated, gin.H{
+		"id": id,
+	})
+
+	return nil
 }
 
-func NewHandlerTenant() HandlerTenant {
-	return HandlerTenant{}
+func (h *HandlerTenant) LoadAll(c *gin.Context) error {
+
+	q := c.DefaultQuery("q", "")
+	page := pkg.ParseIntOrDefault(c.DefaultQuery("page", "0"), 0)
+	limit := pkg.ParseIntOrDefault(c.DefaultQuery("limit", "30"), 30)
+
+	sb := sqlbuilder.PostgreSQL.NewSelectBuilder()
+
+	sbCount := sqlbuilder.PostgreSQL.NewSelectBuilder()
+
+	sb.Select("*").From("tbl_tenant")
+	sbCount.Select("count(*)").From("tbl_tenant")
+
+	if pkg.HasValue(q) {
+		sb.Where(sb.ILike("nome", "%"+q+"%"))
+		sbCount.Where(sbCount.ILike("nome", "%"+q+"%"))
+	}
+
+	sb.Limit(limit)
+	sb.Offset(page * limit)
+
+	type Output struct {
+		Id   int    `gorm:"column:id" json:"id"`
+		Nome string `gorm:"column:nome" json:"nome"`
+	}
+
+	sql, args := sb.Build()
+	sqlCount, argsCount := sbCount.Build()
+	output := []Output{}
+	count := 0
+
+	err := h.db.Conn.Raw(sql, args...).Scan(&output).Error
+
+	if err != nil {
+		return err
+	}
+
+	err = h.db.Conn.Raw(sqlCount, argsCount...).Scan(&count).Error
+
+	if err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":  output,
+		"count": count,
+	})
+
+	return nil
+}
+
+func (h *HandlerTenant) LoadById(c *gin.Context) error {
+
+	id, err := strconv.Atoi(c.Param("id"))
+
+	if err != nil {
+		return err
+	}
+
+	sb := sqlbuilder.PostgreSQL.NewSelectBuilder()
+	sb.Select("*").From("tbl_tenant")
+
+	sb.Where(sb.Equal("id", id))
+
+	type Output struct {
+		Id   int    `gorm:"column:id" json:"id"`
+		Nome string `gorm:"column:nome" json:"nome"`
+	}
+
+	sql, args := sb.Build()
+
+	output := Output{}
+
+	query := h.db.Conn.Raw(sql, args...).Scan(&output)
+
+	if query.Error != nil {
+		return query.Error
+	}
+
+	if query.RowsAffected == 0 {
+		c.Status(http.StatusNoContent)
+		return nil
+	}
+
+	c.JSON(http.StatusOK, output)
+
+	return nil
+}
+
+func (h *HandlerTenant) Update(c *gin.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+
+	if err != nil {
+		return err
+	}
+
+	type Body struct {
+		Nome string `json:"nome"`
+	}
+	body := Body{}
+
+	if err := c.BindJSON(&body); err != nil {
+		AbortWithStatus(c).BadRequest(err)
+		return nil
+	}
+
+	sb := sqlbuilder.PostgreSQL.NewUpdateBuilder()
+
+	sb.Update("tbl_tenant")
+	sb.Where(sb.Equal("id", id))
+
+	if pkg.HasValue(body.Nome) {
+		sb.Set(sb.Assign("nome", body.Nome))
+	}
+
+	sql, args := sb.Build()
+
+	if len(args) < 2 {
+		c.Status(http.StatusOK)
+		return nil
+	}
+
+	err = h.db.Conn.Exec(sql, args...).Error
+
+	if err != nil {
+		return err
+	}
+
+	c.Status(http.StatusOK)
+	return nil
+}
+
+func NewHandlerTenant(db *db.DB) HandlerTenant {
+	return HandlerTenant{db: db}
 }

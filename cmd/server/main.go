@@ -12,6 +12,19 @@ import (
 	"github.com/vineboneto/rest-api-golang/internal/infra/db"
 )
 
+type GinHandler func(c *gin.Context) error
+
+func wrapper(handler GinHandler) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if err := handler(c); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+		}
+
+	}
+}
+
 func main() {
 	err := godotenv.Load()
 
@@ -37,8 +50,14 @@ func main() {
 		})
 	})
 
-	handler := handler.NewHandlerTenant()
-	r.POST("/tenant", handler.CreateTenant)
+	router := r.Group("/tenant")
+	{
+		handler := handler.NewHandlerTenant(db)
+		router.POST("/", wrapper(handler.CreateTenant))
+		router.GET("/", wrapper(handler.LoadAll))
+		router.GET("/:id", wrapper(handler.LoadById))
+		router.PATCH("/:id", wrapper(handler.Update))
+	}
 
 	log.Fatalln(r.Run(":8080"))
 }

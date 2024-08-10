@@ -1,18 +1,17 @@
 package db
 
 import (
-	"context"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
-	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 type DB struct {
-	Conn *pgxpool.Pool
+	Conn *gorm.DB
 }
 
 func BuildDSN() string {
@@ -37,50 +36,33 @@ func BuildDSN() string {
 
 func NewPostgresDB() (*DB, error) {
 
-	config, err := pgxpool.ParseConfig(BuildDSN())
+	config, err := gorm.Open(postgres.Open(BuildDSN()), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse database URL: %v", err)
 	}
 
-	config.MaxConns = 15                      // Número máximo de conexões no pool
-	config.MaxConnLifetime = 30 * time.Minute // Tempo máximo de vida de uma conexão
-	config.MaxConnIdleTime = 5 * time.Minute  // Tempo máximo de inatividade de uma conexão
-	config.MinConns = 2
-
-	conn, err := pgxpool.NewWithConfig(context.Background(), config)
+	db, err := config.DB()
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to parse database URL: %v", err)
 	}
 
-	return &DB{Conn: conn}, nil
-}
+	db.SetMaxOpenConns(30)
 
-func (db *DB) WithTransaction(ctx context.Context, fn func(tx pgx.Tx) error) error {
-	tx, err := db.Conn.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	defer func() {
-		if err != nil {
-			tx.Rollback(ctx)
-		}
-	}()
-
-	err = fn(tx)
-	if err != nil {
-		return err
-	}
-
-	err = tx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+	return &DB{Conn: config}, nil
 }
 
 func (db *DB) Close() {
-	db.Conn.Close()
+	gorm, err := db.Conn.DB()
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	err = gorm.Close()
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 }

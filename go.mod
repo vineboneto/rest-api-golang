@@ -6,11 +6,12 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-ozzo/ozzo-validation v3.6.0+incompatible
 	github.com/huandu/go-sqlbuilder v1.28.1
-	github.com/jackc/pgx/v5 v5.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
 	github.com/pressly/goose/v3 v3.21.1
 	github.com/urfave/cli/v2 v2.27.3
+	gorm.io/driver/postgres v1.5.9
+	gorm.io/gorm v1.25.11
 )
 
 require (
@@ -29,7 +30,10 @@ require (
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
+	github.com/jackc/pgx/v5 v5.6.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
 	github.com/kr/text v0.2.0 // indirect

@@ -1,5 +1,7 @@
 package pkg
 
+import "strconv"
+
 func HasValue(v any) bool {
 	switch v := v.(type) {
 	case int:
@@ -22,4 +24,15 @@ func HasValue(v any) bool {
 		return false
 	}
 	return false
+}
+
+func ParseIntOrDefault(str string, defaultValue int) int {
+	// Tenta converter a string para int
+	value, err := strconv.Atoi(str)
+	if err != nil {
+		// Se houver erro, retorna o valor padrão
+		return defaultValue
+	}
+	// Se a conversão for bem-sucedida, retorna o valor convertido
+	return value
 }
