@@ -1,38 +1,32 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"database/sql"
 	"log"
 	"os"
-	"path/filepath"
 
-	"github.com/golang-migrate/migrate"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/database"
 	"github.com/urfave/cli/v2"
 	"github.com/vineboneto/rest-api-golang/internal/infra/db"
+	"github.com/vineboneto/rest-api-golang/migrations"
 )
 
-func openDBMigration() (*migrate.Migrate, error) {
-
-	absPath, err := filepath.Abs("migrations")
-	if err != nil {
-		log.Printf("[E] abs migrations path failed. err:%v", err)
-		return nil, err
+func printMigrationResults(results ...*goose.MigrationResult) {
+	log.Println("\n=== migration results  ===")
+	for _, r := range results {
+		log.Printf("%-3s %-2v done: %v\n", r.Source.Type, r.Source.Version, r.Duration)
 	}
+}
 
-	m, err := migrate.New(
-		fmt.Sprintf("file://%s", absPath),
-		db.BuildDSN(),
-	)
-
-	if err != nil {
-		return nil, err
+func printMigrationStatus(results ...*goose.MigrationStatus) {
+	log.Println("\n=== migration status  ===")
+	for _, r := range results {
+		log.Printf("%-3s %-2v applied: %v status:%v\n", r.Source.Type, r.Source.Version, r.AppliedAt, r.State)
 	}
-
-	return m, nil
 }
 
 func main() {
@@ -42,6 +36,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Erro ao carregar o arquivo .env: %v", err)
 	}
+
+	db, err := sql.Open("postgres", db.BuildDSN())
+
+	if err != nil {
+		log.Fatalf("sql: failed to open DB: %v\n", err)
+	}
+
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Fatalf("sql: failed to close DB: %v\n", err)
+		}
+	}()
 
 	app := &cli.App{
 		Name:  "ponkan-cli",
@@ -55,25 +61,21 @@ func main() {
 						Name:  "up",
 						Usage: "Aplica todas as migrações pendentes",
 						Action: func(c *cli.Context) error {
-							m, err := openDBMigration()
+							provider, err := goose.NewProvider(database.DialectPostgres, db, migrations.Embed)
 
 							if err != nil {
 								return err
 							}
 
-							defer func() error {
-								sourceErr, dbErr := m.Close()
-								if sourceErr != nil {
-									return sourceErr
-								}
-								if dbErr != nil {
-									return dbErr
-								}
+							ctx := context.Background()
+							results, err := provider.Up(ctx)
 
-								return nil
-							}()
+							if err != nil {
+								log.Fatal(err)
+							}
 
-							m.Up()
+							printMigrationResults(results...)
+
 							return nil
 						},
 					},
@@ -81,6 +83,42 @@ func main() {
 						Name:  "down",
 						Usage: "Desfaz a última migração",
 						Action: func(c *cli.Context) error {
+							provider, err := goose.NewProvider(database.DialectPostgres, db, migrations.Embed)
+
+							if err != nil {
+								return err
+							}
+
+							ctx := context.Background()
+							results, err := provider.Down(ctx)
+
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							printMigrationResults(results)
+
+							return nil
+						},
+					},
+					{
+						Name:  "status",
+						Usage: "Verifica status do banco",
+						Action: func(c *cli.Context) error {
+							provider, err := goose.NewProvider(database.DialectPostgres, db, migrations.Embed)
+
+							if err != nil {
+								return err
+							}
+
+							ctx := context.Background()
+							results, err := provider.Status(ctx)
+
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							printMigrationStatus(results...)
 
 							return nil
 						},
