@@ -15,24 +15,29 @@ type DB struct {
 	Conn *pgxpool.Pool
 }
 
-func NewPostgresDB() (*DB, error) {
+func BuildDSN() string {
 
-	port, err := strconv.ParseUint(os.Getenv("POSTGRES_PONKAN_PORT"), 10, 16)
+	port, err := strconv.ParseUint(os.Getenv("POSTGRES_PORT"), 10, 16)
 
 	if err != nil {
-		panic("POSTGRES_PONKAN_PORT is not int")
+		panic("POSTGRES_PORT is not int")
 
 	}
 
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
-		os.Getenv("POSTGRES_PONKAN_USER"),
-		os.Getenv("POSTGRES_PONKAN_PASSWORD"),
-		os.Getenv("POSTGRES_PONKAN_HOST"),
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		os.Getenv("POSTGRES_USER"),
+		os.Getenv("POSTGRES_PASS"),
+		os.Getenv("POSTGRES_HOST"),
 		uint16(port),
-		os.Getenv("POSTGRES_PONKAN_DATABASE"),
+		os.Getenv("POSTGRES_DATABASE"),
 	)
 
-	config, err := pgxpool.ParseConfig(dsn)
+	return dsn
+}
+
+func NewPostgresDB() (*DB, error) {
+
+	config, err := pgxpool.ParseConfig(BuildDSN())
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse database URL: %v", err)
 	}

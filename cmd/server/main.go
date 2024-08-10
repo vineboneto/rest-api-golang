@@ -14,6 +14,7 @@ import (
 
 func main() {
 	err := godotenv.Load()
+
 	if err != nil {
 		log.Fatalf("Erro ao carregar o arquivo .env: %v", err)
 	}
@@ -21,7 +22,9 @@ func main() {
 	r.SetTrustedProxies(nil)
 	db, err := db.NewPostgresDB()
 
-	defer db.Close()
+	defer func() {
+		db.Close()
+	}()
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
