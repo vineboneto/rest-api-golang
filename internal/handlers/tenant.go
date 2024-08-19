@@ -16,13 +16,28 @@ type HandlerTenant struct {
 	db *db.DB
 }
 
+type CreateTenantInput struct {
+	Nome string `json:"nome"`
+}
+
+type CreateTenantOutput struct {
+	Id string `json:"id"`
+}
+
+// CreateTenant godoc
+//
+//	@Summary		Cria um novo Tenant
+//	@Description	Cria um novo Tenant com o nome fornecido
+//	@Tags			tenant
+//	@Accept			json
+//	@Produce		json
+//	@Param			input	body	CreateTenantInput	true	"Dados para criar um novo Tenant"
+//	@Success		200		{object}	CreateTenantOutput	"Tenant criado com sucesso"
+//	@Failure		400		{object}	ErrorResponse		"Erro na requisição"
+//	@Router			/tenant [post]
 func (h *HandlerTenant) CreateTenant(c *gin.Context) error {
 
-	type Body struct {
-		Nome string `json:"nome"`
-	}
-
-	body := Body{}
+	body := CreateTenantInput{}
 
 	if err := c.BindJSON(&body); err != nil {
 		AbortWithStatus(c).BadRequest(err)
@@ -46,10 +61,10 @@ func (h *HandlerTenant) CreateTenant(c *gin.Context) error {
 
 	sql, args := ib.Build()
 
-	var id int
+	var output CreateTenantOutput
 
 	err = h.db.Conn.Transaction(func(tx *gorm.DB) error {
-		err = tx.Raw(sql, args...).Scan(&id).Error
+		err = tx.Raw(sql, args...).Scan(&output.Id).Error
 		if err != nil {
 			return err
 		}
@@ -61,9 +76,7 @@ func (h *HandlerTenant) CreateTenant(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"id": id,
-	})
+	c.JSON(http.StatusCreated, output)
 
 	return nil
 }

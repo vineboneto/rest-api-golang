@@ -6,6 +6,11 @@ import (
 	"net/http"
 	"os"
 
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "github.com/vineboneto/rest-api-golang/docs"
+
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	handler "github.com/vineboneto/rest-api-golang/internal/handlers"
@@ -21,10 +26,27 @@ func wrapper(handler GinHandler) gin.HandlerFunc {
 				"error": err.Error(),
 			})
 		}
-
 	}
 }
 
+// @title						Crud Golang
+// @version					1.0
+
+// @description				Controle de Estoque com Go.
+// @termsOfService				http://swagger.io/terms/
+
+// @contact.name				API Support
+// @contact.url				http://www.swagger.io/support
+// @contact.email				support@swagger.io
+
+// @securityDefinitions.apiKey	JWT
+// @in							header
+// @name						token
+
+// @license.name				MIT
+
+// @host						localhost:8080
+// @BasePath  /api/v1
 func main() {
 	err := godotenv.Load()
 
@@ -50,13 +72,18 @@ func main() {
 		})
 	})
 
-	router := r.Group("/tenant")
+	v1Router := r.Group("/api/v1")
 	{
-		handler := handler.NewHandlerTenant(db)
-		router.POST("/", wrapper(handler.CreateTenant))
-		router.GET("/", wrapper(handler.LoadAll))
-		router.GET("/:id", wrapper(handler.LoadById))
-		router.PATCH("/:id", wrapper(handler.Update))
+		v1Router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+		router := v1Router.Group("/tenant")
+		{
+			h := handler.NewHandlerTenant(db)
+			router.POST("/", wrapper(h.CreateTenant))
+			router.GET("/", wrapper(h.LoadAll))
+			router.GET("/:id", wrapper(h.LoadById))
+			router.PATCH("/:id", wrapper(h.Update))
+		}
+
 	}
 
 	log.Fatalln(r.Run(":8080"))

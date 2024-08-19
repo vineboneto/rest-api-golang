@@ -19,3 +19,7 @@ func (a AbortStruct) BadRequest(err error) {
 		"error": err.Error(),
 	})
 }
+
+type ErrorResponse struct {
+	Error string `json:"error"`
+}

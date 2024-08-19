@@ -1,6 +1,6 @@
 services:
-  db_ponkan:
-    container_name: db_ponkan
+  db:
+    container_name: db
     image: docker.io/postgres:15
     restart: always
     healthcheck:
@@ -12,11 +12,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASS}
       POSTGRES_DB: ${POSTGRES_DATABASE}
-      TZ: America/Sao_Paulo
+      TZ: UTC
     ports:
       - ${POSTGRES_PORT}:5432
     volumes:
-      - ponkan_pgdata:/data/postgres
+      - db_pgdata:/data/postgres
 
 volumes:
-  ponkan_pgdata:
+  db_pgdata:

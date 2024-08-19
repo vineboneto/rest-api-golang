@@ -1,0 +1,62 @@
+basePath: /api/v1
+definitions:
+  internal_handlers.CreateTenantInput:
+    properties:
+      nome:
+        type: string
+    type: object
+  internal_handlers.CreateTenantOutput:
+    properties:
+      id:
+        type: string
+    type: object
+  internal_handlers.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: Controle de Estoque com Go.
+  license:
+    name: MIT
+  termsOfService: http://swagger.io/terms/
+  title: Crud Golang
+  version: "1.0"
+paths:
+  /tenant:
+    post:
+      consumes:
+      - application/json
+      description: Cria um novo Tenant com o nome fornecido
+      parameters:
+      - description: Dados para criar um novo Tenant
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handlers.CreateTenantInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tenant criado com sucesso
+          schema:
+            $ref: '#/definitions/internal_handlers.CreateTenantOutput'
+        "400":
+          description: Erro na requisição
+          schema:
+            $ref: '#/definitions/internal_handlers.ErrorResponse'
+      summary: Cria um novo Tenant
+      tags:
+      - tenant
+securityDefinitions:
+  JWT:
+    in: header
+    name: token
+    type: apiKey
+swagger: "2.0"
